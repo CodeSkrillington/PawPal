@@ -14,7 +14,7 @@ A Pet Medication Tracker for Owners
 |------|------|-----------------|
 | Jesse Singleton | Project Developer | @CodeSkrillington |
 | Emilee Stone | ProjectDeveloper | @mlee-stone |
-| Chase Anderson | Project Developer | @chaseanderson |
+| Chase Andersen | Project Developer | @chaseandersen |
 
 ---
 
