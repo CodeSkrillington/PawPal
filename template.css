@@ -7,9 +7,10 @@
 }
 
 body {
-    font-family: 'Arial', sans-serif;
-    height: 100vh;
-    overflow: hidden;
+font-family: 'Arial', sans-serif;
+/* allow the page to grow and scroll when content exceeds the viewport */
+min-height: 100vh;
+overflow-y: auto;
 }
 
 /* BACKGROUND IMAGE SETUP - EASY TO CHANGE */
@@ -108,6 +109,37 @@ p {
     text-decoration: none;
 }
 
+/* Dashboard Info Grid */
+.dashboard-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    background-color: rgba(59, 89, 152, 0.08);
+    border-radius: 8px;
+    border-left: 3px solid var(--primary, #3b5998);
+}
+
+.info-label {
+    font-weight: 600;
+    color: var(--primary, #3b5998);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    color: #333;
+    font-size: 15px;
+    font-weight: 500;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
     h1 {
@@ -121,5 +153,9 @@ p {
     .cta-button {
         padding: 12px 24px;
         font-size: 1rem;
+    }
+    
+    .dashboard-info-grid {
+        grid-template-columns: 1fr;
     }
 }

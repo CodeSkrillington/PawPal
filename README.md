@@ -38,19 +38,23 @@ The project aims to:
 ## 📁 Files Overview
 
 ### Frontend Pages
+- `home.html` — Home page with welcome header, calendar, and pet list management
+- `home.js` — Home page functionality: pet management, calendar, and navigation
+- `dashboard.html` — Pet-specific dashboard showing detailed pet information and dose tracking
+- `dashboard.js` — Dashboard functionality: loads pet data, medication reminders, dose logging
+- `modular-login.html` — Login/signup page with authentication
+- `login.js` — Login page authentication handling
 - `template.html` — Basic website template with customizable background image
-- `modular-login.html` — Login/signup demo showing how to use the auth module
-- `dashboard.html` — Modular dashboard page showing pets, medications, and appointments
-
 
 ### Modular Authentication System
-- `auth-module.js` — **Reusable authentication library** (frontend)
+- `auth-module.js` — **Reusable authentication library** (frontend-only, LocalStorage-based)
 - `flask-auth-api.py` — **Production backend API** (Flask)
 - `requirements.txt` — Python dependencies for Flask API
 
 ### Styling & Assets
-- `styles.css` — Main theme & authentication UI styling
-- `template.css` — Template-specific background and layout styles
+- `styles.css` — Main theme, navigation, pet list styling, and component styles
+- `template.css` — Template layouts, dashboard cards, and background support
+- `pet-styles.css` — Pet-specific modals and form styling
 - `background.png` — Website background image
 
 ---
@@ -61,43 +65,101 @@ The project aims to:
 - ✅ **Modular Authentication System** - Reusable `auth-module.js` for user login/signup
 - ✅ **User Account Creation** - Sign up with email and password
 - ✅ **User Login** - Secure login with password verification
-- ✅ **Simplified Login Interface** - Clean login-first design with signup accessible via link
-- ✅ **Frontend Authentication** - LocalStorage-based user management
-- ✅ **Backend Authentication API** - Flask API with production-ready endpoints
+- ✅ **Frontend Authentication** - LocalStorage-based user and pet data management
+- ✅ **Home Page** - Welcome header with user's first name, calendar, and pet list
+- ✅ **Calendar Widget** - Interactive calendar with navigation between months
+- ✅ **Pet Management** - Add, edit, delete pets with full details
+- ✅ **Pet Details** - Store name, type (dog/cat/other), breed, age, sex, weight, medicine, notes
+- ✅ **Pet List Display** - Shows all pets with quick information preview
+- ✅ **Details & Edit Button** - View complete pet information and modify details in modal
+- ✅ **Pet-Specific Dashboard** - Each pet has a unique dashboard with:
+  - Pet Information card (type, breed, age, sex, weight)
+  - Medication card with reminder interval settings (1-24 hours)
+  - Dose Logging card to track medication doses with timestamps
+  - Recent dose logs display (last 5 entries)
+- ✅ **Dashboard Button** - Quick access to individual pet dashboards from pet list
+- ✅ **Medication Reminders** - Set custom reminder intervals (hours) per medication
+- ✅ **Dose Logging System** - Log medication doses with timestamps and descriptions
+- ✅ **Persistent Storage** - All data saved to LocalStorage per user
 - ✅ **Responsive Design** - Mobile-friendly UI with modern styling
-- ✅ **Custom Branding & Theming** - Unified PawPal color palette and layout across all pages
-- ✅ **Background Image Support** - Website template with customizable background
-- ✅ **Dashboard Page** - Modular, standalone dashboard displaying sample pet, medication, and appointment cards
-- ✅ **Home Page** - Home page, ability to add animals tied to selected user
-
+- ✅ **Custom Branding & Theming** - Unified PawPal color palette throughout
+- ✅ **Background Image Support** - Customizable background images
+- ✅ **Navigation Bar** - Header with Home, Dashboard, and Logout buttons
+- ✅ **User Logout** - Secure logout that clears session and redirects to login
 
 > *Stretch Goals (Future):*
-- Pet Profiles: Create and manage pet information (name, species, age, medical history)
-- Medication Entry: Add medications with dosage, frequency, and schedules
-- Reminder Dashboard: Display upcoming medication reminders
-- Dose Logging: Track administered doses and view history
-- Calendar View: Visualize medication schedules
-- Email Notifications: Alert system for upcoming doses
 - Family Sharing: Multi-user access to pet information
+- Email Notifications: Alert system for upcoming doses
+- Vet Appointment Tracking: Schedule and track vet visits
+- Medical History: Store vaccination records and health documents
+- Export/Reports: Generate medication compliance reports
 
 
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- No installation required for frontend
+- Python 3.7+ (optional, for backend API)
+
+### Running the Application
+1. Clone or download the repository
+2. Open `modular-login.html` in your web browser
+3. Create a new account or login with existing credentials
+4. Navigate to Home to manage your pets
+5. Click "Dashboard" on any pet to view detailed information and track doses
+
+### Data Storage
+- All user and pet data is stored in the browser's LocalStorage
+- Data persists across browser sessions
+- To clear data, open browser DevTools → Application → LocalStorage and delete the app's entries
+
+---
+
+## 📱 Page Guide
+
+### Login Page (`modular-login.html`)
+- Sign up with email and password
+- Login with existing account
+- Simple, focused authentication interface
+
+### Home Page (`home.html`)
+- Welcome message with user's first name
+- Interactive calendar widget for current month
+- Pet list showing all pets with quick details
+- Buttons for each pet:
+  - **Details & Edit** (blue) - View full details and edit pet information
+  - **Dashboard** (green) - View pet-specific dashboard
+  - **Delete** (red) - Remove pet from list
+- **+ Add New Pet** button to create new pet records
+
+### Pet Dashboard (`dashboard.html`)
+- Unique dashboard for each selected pet
+- Shows pet icon and name in header
+- Three information cards:
+  1. **Pet Information** - Type, breed, age, sex, weight
+  2. **Medication** - Medication details with reminder interval settings
+  3. **Dose Logging** - Log doses and view recent entries with timestamps
+- Back to Home button
 
 ---
 
 ## 🧩 Planned Features / Future Work
  
 > **Phase 2 (Next Sprint):**
-- Pet profile creation and management
-- Medication tracking system
-- Basic reminder functionality
-- Dashboard for viewing upcoming doses
-- Connect dashboard to live data from backend API
-
+- Backend API integration for data persistence
+- Email notification system for medication reminders
+- Vet appointment scheduling and tracking
+- Medical history and vaccination records
 
 > **Phase 3 (Extended):**
-- Calendar view for medication schedules
-- Email notification system
-- Dose history and reporting
+- Calendar view synchronized with medication schedules
+- PDF report generation for vet visits
+- Multi-pet household dashboard view
+- Photo storage for pet identification
 - Family/caregiver sharing features
 - Admin dashboard
 

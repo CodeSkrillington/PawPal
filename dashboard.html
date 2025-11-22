@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PawPal Dashboard</title>
 
-  <!-- Uses existing stylesheets -->
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="template.css">
+  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="template.css?v=7">
+  <link rel="stylesheet" href="pet-styles.css?v=4">
 </head>
 <body>
 
@@ -32,38 +32,35 @@
     <div class="dashboard-wrapper">
 
       <header class="dashboard-header">
-        <h1>PawPal Dashboard</h1>
-        <p>
-          Quick snapshot of your pets, medications, and upcoming vet care.
+        <h1><span id="petIcon">🐾</span> <span id="petName">PawPal Dashboard</span></h1>
+        <p id="petSubtitle">
+          Quick snapshot of your pet's information and health details.
         </p>
       </header>
 
       <main class="dashboard-grid">
-        <!-- Card 1: Pets -->
+        <!-- Card 1: Pet Details -->
         <section class="dashboard-card">
-          <h2>Your Pets</h2>
-          <ul>
-            <li><strong>Bella</strong> – Dog • Age 4 • Allergies</li>
-            <li><strong>Whiskers</strong> – Cat • Age 2 • Indoor</li>
-          </ul>
+          <h2>Pet Information</h2>
+          <div id="petDetailsContainer">
+            <!-- Pet details will be loaded here -->
+          </div>
         </section>
 
-        <!-- Card 2: Medications -->
+        <!-- Card 2: Medication -->
         <section class="dashboard-card">
-          <h2>Upcoming Medications</h2>
-          <ul>
-            <li>Bella – Apoquel – Today at 6:00 PM</li>
-            <li>Whiskers – Flea Treatment – Nov 10</li>
-          </ul>
+          <h2>💊 Medication</h2>
+          <div id="healthContainer">
+            <!-- Medication information will be loaded here -->
+          </div>
         </section>
 
-        <!-- Card 3: Appointments -->
+        <!-- Card 3: Dose Logging -->
         <section class="dashboard-card">
-          <h2>Vet Appointments</h2>
-          <ul>
-            <li>Nov 15 – Wellness exam for Bella</li>
-            <li>Dec 2 – Dental cleaning for Whiskers</li>
-          </ul>
+          <h2>💉 Dose Logging</h2>
+          <div id="notesContainer">
+            <!-- Dose logging will be loaded here -->
+          </div>
         </section>
       </main>
 
@@ -77,9 +74,9 @@
   </div>
 
   <!-- Load the auth module -->
-  <script src="auth-module.js"></script>
+  <script src="auth-module.js?v=6"></script>
   <!-- Load dashboard functionality -->
-  <script src="dashboard.js"></script>
+  <script src="dashboard.js?v=5"></script>
 
 </body>
 </html>

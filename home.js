@@ -9,6 +9,9 @@ let auth = new PawPalAuth({
   usersKey: 'example_app_users'
 });
 
+// Calendar state
+let currentDate = new Date();
+
 // Check if user is logged in
 const currentUser = auth.getCurrentUser();
 if (!currentUser) {
@@ -38,11 +41,7 @@ async function handleLogout() {
 
 function loadUserPets() {
   const petsContainer = document.getElementById('petsContainer');
-  
-  // Get pets from localStorage (using user's email as key)
-  const userPetsKey = `pawpal_pets_${currentUser.email}`;
-  const petsData = localStorage.getItem(userPetsKey);
-  const pets = petsData ? JSON.parse(petsData) : [];
+  const pets = getUserPets();
 
   if (pets.length === 0) {
     petsContainer.innerHTML = `
@@ -53,60 +52,291 @@ function loadUserPets() {
     return;
   }
 
-  // Render pets
   const petsList = document.createElement('ul');
   petsList.className = 'pets-list';
-  
+
   pets.forEach(pet => {
     const petItem = document.createElement('li');
     petItem.className = 'pet-item';
-    
+    petItem.dataset.petId = pet.id;
     const icon = pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾';
-    
+
     petItem.innerHTML = `
       <div class="pet-icon">${icon}</div>
       <div class="pet-info">
         <p class="pet-name">${pet.name}</p>
-        <p class="pet-details">${pet.type} • ${pet.age} ${pet.age === 1 ? 'year' : 'years'} old${pet.notes ? ' • ' + pet.notes : ''}</p>
+        <p class="pet-details">
+          ${pet.breed ? pet.breed + ' • ' : ''}${pet.type}${pet.age ? ' • ' + pet.age + ' ' + (pet.age === 1 ? 'year' : 'years') : ''}
+          ${pet.sex ? ' • ' + pet.sex : ''}
+        </p>
+        ${pet.medicine ? '<p class="pet-medicine">💊 Medicine: ' + pet.medicine + '</p>' : ''}
+        ${pet.notes ? '<p class="pet-notes">📝 ' + pet.notes + '</p>' : ''}
+      </div>
+      <div class="pet-actions">
+        <button class="pet-btn details" data-action="details" data-id="${pet.id}">Details & Edit</button>
+        <button class="pet-btn dashboard" data-action="dashboard" data-id="${pet.id}">Dashboard</button>
+        <button class="pet-btn delete" data-action="delete" data-id="${pet.id}">Delete</button>
+      </div>
+    `;
+
+    petsList.appendChild(petItem);
+  });
+
+  petsContainer.innerHTML = '';
+  petsContainer.appendChild(petsList);
+
+  petsList.querySelectorAll('.pet-btn').forEach(button => {
+    const action = button.dataset.action;
+    const petId = Number(button.dataset.id);
+    button.addEventListener('click', () => handlePetAction(petId, action));
+  });
+}
+
+async function addNewPet() {
+  const pet = await promptPetDetails();
+  if (!pet) return;
+
+  const pets = getUserPets();
+  pets.push(pet);
+  saveUserPets(pets);
+
+  loadUserPets();
+  auth.showMessage(`${pet.name} has been added!`, 'success');
+}
+
+function handlePetAction(petId, action) {
+  if (action === 'details') {
+    showPetDetailAndEdit(petId);
+  } else if (action === 'dashboard') {
+    goToPetDashboard(petId);
+  } else if (action === 'delete') {
+    deletePet(petId);
+  }
+}
+
+async function editPet(petId) {
+  const pets = getUserPets();
+  const petIndex = pets.findIndex(p => p.id === petId);
+  if (petIndex === -1) return;
+
+  const updated = await promptPetDetails(pets[petIndex]);
+  if (!updated) return;
+
+  pets[petIndex] = { ...pets[petIndex], ...updated, updatedAt: new Date().toISOString() };
+  saveUserPets(pets);
+
+  loadUserPets();
+  auth.showMessage(`${updated.name} has been updated.`, 'success');
+}
+
+function goToPetDashboard(petId) {
+  // Store the selected pet ID in session storage
+  sessionStorage.setItem('selectedPetId', petId);
+  // Redirect to dashboard
+  window.location.href = 'dashboard.html';
+}
+
+function deletePet(petId) {
+  const pets = getUserPets();
+  const pet = pets.find(p => p.id === petId);
+  if (!pet) return;
+
+  const confirmed = confirm(`Are you sure you want to remove ${pet.name}?`);
+  if (!confirmed) return;
+
+  const filtered = pets.filter(p => p.id !== petId);
+  saveUserPets(filtered);
+
+  loadUserPets();
+  auth.showMessage(`${pet.name} has been removed.`, 'info');
+}
+
+function showPetDetailAndEdit(petId) {
+  const pets = getUserPets();
+  const pet = pets.find(p => p.id === petId);
+  if (!pet) return;
+
+  const icon = pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾';
+  const modalId = 'pet-detail-modal-' + Date.now();
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay show';
+  modal.id = modalId;
+  modal.innerHTML = `
+    <div class="modal-content pet-detail-modal">
+      <div class="modal-header">
+        <h3>${icon} ${pet.name}</h3>
+        <button class="modal-close" onclick="document.getElementById('${modalId}').remove()">✕</button>
+      </div>
+      <div class="pet-detail-content">
+        <div class="detail-section">
+          <h4>Basic Information</h4>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Type:</span>
+              <span class="detail-value">${pet.type.charAt(0).toUpperCase() + pet.type.slice(1)}</span>
+            </div>
+            ${pet.breed ? `
+            <div class="detail-item">
+              <span class="detail-label">Breed:</span>
+              <span class="detail-value">${pet.breed}</span>
+            </div>
+            ` : ''}
+            ${pet.age ? `
+            <div class="detail-item">
+              <span class="detail-label">Age:</span>
+              <span class="detail-value">${pet.age} ${pet.age === 1 ? 'year' : 'years'}</span>
+            </div>
+            ` : ''}
+            ${pet.sex ? `
+            <div class="detail-item">
+              <span class="detail-label">Sex:</span>
+              <span class="detail-value">${pet.sex}</span>
+            </div>
+            ` : ''}
+            ${pet.weight ? `
+            <div class="detail-item">
+              <span class="detail-label">Weight:</span>
+              <span class="detail-value">${pet.weight} lbs</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        ${pet.medicine ? `
+        <div class="detail-section">
+          <h4>💊 Medicine / Allergies</h4>
+          <div class="detail-grid">
+            <div class="detail-item" style="grid-column: 1 / -1;">
+              <span class="detail-value">${pet.medicine}</span>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+        ${pet.notes ? `
+        <div class="detail-section">
+          <h4>📝 Special Notes</h4>
+          <div class="detail-grid">
+            <div class="detail-item" style="grid-column: 1 / -1;">
+              <span class="detail-value">${pet.notes}</span>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn primary" onclick="editPet(${pet.id}); document.getElementById('${modalId}').remove();">Edit</button>
+        <button class="modal-btn" onclick="document.getElementById('${modalId}').remove()">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function promptPetDetails(existing = {}) {
+  return new Promise((resolve) => {
+    const modalId = 'pet-modal-' + Date.now();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.id = modalId;
+    modal.innerHTML = `
+      <div class="modal-content pet-form-modal">
+        <div class="modal-header">
+          <h3>${existing.id ? 'Edit Pet' : 'Add New Pet'}</h3>
+          <button class="modal-close" onclick="document.getElementById('${modalId}').remove()">✕</button>
+        </div>
+        <form class="pet-form" onsubmit="event.preventDefault()">
+          <div class="form-group">
+            <label>Pet Name *</label>
+            <input type="text" name="name" value="${existing.name || ''}" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Type *</label>
+              <select name="type" required>
+                <option value="dog" ${existing.type === 'dog' ? 'selected' : ''}>Dog</option>
+                <option value="cat" ${existing.type === 'cat' ? 'selected' : ''}>Cat</option>
+                <option value="other" ${existing.type === 'other' ? 'selected' : ''}>Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Breed</label>
+              <input type="text" name="breed" value="${existing.breed || ''}">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Age (years)</label>
+              <input type="number" name="age" min="0" value="${existing.age || ''}">
+            </div>
+            <div class="form-group">
+              <label>Sex</label>
+              <select name="sex">
+                <option value="">Not specified</option>
+                <option value="Male" ${existing.sex === 'Male' ? 'selected' : ''}>Male</option>
+                <option value="Female" ${existing.sex === 'Female' ? 'selected' : ''}>Female</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Weight (lbs)</label>
+              <input type="number" name="weight" min="0" step="0.1" value="${existing.weight || ''}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Medicine / Allergies</label>
+            <input type="text" name="medicine" placeholder="e.g., Amoxicillin, Penicillin allergy" value="${existing.medicine || ''}">
+          </div>
+          <div class="form-group">
+            <label>Special Notes</label>
+            <textarea name="notes" rows="3" placeholder="Any other important information...">${existing.notes || ''}</textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('${modalId}').remove()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Pet</button>
+          </div>
+        </form>
       </div>
     `;
     
-    petsList.appendChild(petItem);
+    document.body.appendChild(modal);
+    modal.classList.add('show');
+    
+    const form = modal.querySelector('.pet-form');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const petData = {
+        id: existing.id || Date.now(),
+        name: formData.get('name'),
+        type: formData.get('type'),
+        breed: formData.get('breed'),
+        age: formData.get('age') ? parseInt(formData.get('age')) : null,
+        sex: formData.get('sex'),
+        weight: formData.get('weight') ? parseFloat(formData.get('weight')) : null,
+        medicine: formData.get('medicine'),
+        notes: formData.get('notes'),
+        createdAt: existing.createdAt || new Date().toISOString()
+      };
+      modal.remove();
+      resolve(petData);
+    });
+    
+    modal.querySelector('.modal-close').addEventListener('click', () => {
+      resolve(null);
+    });
   });
-  
-  petsContainer.innerHTML = '';
-  petsContainer.appendChild(petsList);
 }
 
-function addNewPet() {
-  const name = prompt('Enter pet name:');
-  if (!name) return;
-  
-  const type = prompt('Enter pet type (dog/cat/other):')?.toLowerCase() || 'other';
-  const age = parseInt(prompt('Enter pet age:') || '0');
-  const notes = prompt('Any special notes? (optional)') || '';
-
+function getUserPets() {
   const userPetsKey = `pawpal_pets_${currentUser.email}`;
   const petsData = localStorage.getItem(userPetsKey);
-  const pets = petsData ? JSON.parse(petsData) : [];
+  return petsData ? JSON.parse(petsData) : [];
+}
 
-  pets.push({
-    id: Date.now(),
-    name,
-    type,
-    age,
-    notes,
-    createdAt: new Date().toISOString()
-  });
-
+function saveUserPets(pets) {
+  const userPetsKey = `pawpal_pets_${currentUser.email}`;
   localStorage.setItem(userPetsKey, JSON.stringify(pets));
-  loadUserPets();
-  auth.showMessage(`${name} has been added!`, 'success');
 }
 
 // ==================== CALENDAR ====================
-
-let currentDate = new Date();
 
 function initCalendar() {
   renderCalendar();
@@ -115,16 +345,14 @@ function initCalendar() {
 function renderCalendar() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  
-  // Update header
+  const calendarGrid = document.getElementById('calendarGrid');
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
   document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
-  
-  // Get calendar grid
-  const calendarGrid = document.getElementById('calendarGrid');
+
+  console.log('Calendar v3: Rendering', monthNames[month], year);
   calendarGrid.innerHTML = '';
-  
+
   // Add day headers
   const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   dayHeaders.forEach(day => {
@@ -133,41 +361,39 @@ function renderCalendar() {
     header.textContent = day;
     calendarGrid.appendChild(header);
   });
-  
-  // Get first day of month and number of days
-  const firstDay = new Date(year, month, 1).getDay();
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
-  
-  // Get today's date for highlighting
+  const prevMonthDays = new Date(year, month, 0).getDate();
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
   const todayDate = today.getDate();
-  
-  // Add days from previous month
-  for (let i = firstDay - 1; i >= 0; i--) {
+
+  // Add empty cells before 1st of month
+  for (let i = 0; i < firstDayIndex; i++) {
     const day = document.createElement('div');
     day.className = 'calendar-day other-month';
-    day.textContent = daysInPrevMonth - i;
+    day.textContent = prevMonthDays - (firstDayIndex - 1 - i);
     calendarGrid.appendChild(day);
   }
-  
+
   // Add days of current month
   for (let i = 1; i <= daysInMonth; i++) {
     const day = document.createElement('div');
     day.className = 'calendar-day';
-    day.textContent = i;
-    
     if (isCurrentMonth && i === todayDate) {
       day.classList.add('today');
     }
-    
+    day.textContent = i;
     calendarGrid.appendChild(day);
   }
-  
-  // Add days from next month to fill grid
-  const totalCells = calendarGrid.children.length - 7; // Subtract day headers
-  const remainingCells = 35 - totalCells; // 5 weeks * 7 days
+
+  // Calculate remaining cells to fill (6 weeks = 42 cells + 7 headers = 49 total)
+  // Current cells = 7 (headers) + firstDayIndex + daysInMonth
+  const currentCells = 7 + firstDayIndex + daysInMonth;
+  const remainingCells = 49 - currentCells;
+
+  // Add trailing days from next month
   for (let i = 1; i <= remainingCells; i++) {
     const day = document.createElement('div');
     day.className = 'calendar-day other-month';
