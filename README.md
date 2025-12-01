@@ -40,15 +40,22 @@ The project aims to:
 ### Frontend Pages
 - `home.html` — Home page with welcome header, calendar, and pet list management
 - `home.js` — Home page functionality: pet management, calendar, and navigation
-- `dashboard.html` — Pet-specific dashboard showing detailed pet information and dose tracking
-- `dashboard.js` — Dashboard functionality: loads pet data, medication reminders, dose logging
-- `modular-login.html` — Login/signup page with authentication
-- `login.js` — Login page authentication handling
+- `dashboard.html` — Pet-specific dashboard showing detailed pet information and medication/dose tracking
+- `dashboard.js` — **Enhanced dashboard with backend API integration**: loads pet data from API, manages medications via backend, handles dose logging
+- `modular-login.html` — Login/signup page with JWT authentication
+- `login.js` — Login page authentication handling with token-based auth
 - `template.html` — Basic website template with customizable background image
 
 ### Modular Authentication System
-- `auth-module.js` — **Reusable authentication library** (frontend-only, LocalStorage-based)
-- `flask-auth-api.py` — **Production backend API** (Flask)
+- `auth-module.js` — **Authentication library** supporting both LocalStorage (frontend) and JWT token (API) modes
+- `flask_auth_api.py` — **Production backend API** (Flask + SQLAlchemy + PostgreSQL) with:
+  - User authentication (signup, login, password change)
+  - JWT token generation and verification (7-day expiry)
+  - Pet management endpoints (create, read, update, delete)
+  - Medication management endpoints (create, read, delete)
+  - Token-required decorators for protected routes
+  - User-specific data isolation
+  - Comprehensive error handling
 - `requirements.txt` — Python dependencies for Flask API
 
 ### Styling & Assets
@@ -59,33 +66,83 @@ The project aims to:
 
 ---
 
+## 🚀 Quick Start for Developers
+
+**See [`RUNNING.md`](./RUNNING.md) for complete setup instructions (macOS/Linux/Windows).**
+
+**Quick TL;DR:**
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Set up .env file (ask team for credentials)
+cp .env.example .env  # or create .env with DB connection details
+
+# 3. Run Flask backend (port 5001)
+python flask_auth_api.py
+
+# 4. Open HTML frontend in browser
+# Point to modular-login.html or use a local server:
+python -m http.server 8000
+
+# 5. Navigate to http://localhost:8000/modular-login.html
+```
+
+**Tech Stack:**
+- **Backend:** Flask + SQLAlchemy + PostgreSQL
+- **Frontend:** Vanilla JavaScript + HTML/CSS
+- **Authentication:** JWT tokens (7-day expiry)
+- **API Port:** 5001 | **Frontend Port:** 8000
+
+---
+
 ## ⚙️ Current Features  
 
 > *Core Features Implemented:*
-- ✅ **Modular Authentication System** - Reusable `auth-module.js` for user login/signup
-- ✅ **User Account Creation** - Sign up with email and password
-- ✅ **User Login** - Secure login with password verification
-- ✅ **Frontend Authentication** - LocalStorage-based user and pet data management
-- ✅ **Home Page** - Welcome header with user's first name, calendar, and pet list
+- ✅ **Modular Authentication System** - Reusable `auth-module.js` for user login/signup with JWT tokens
+- ✅ **User Account Creation** - Sign up with email and password stored securely in PostgreSQL
+- ✅ **User Login** - Secure login with password verification and 7-day JWT token expiry
+- ✅ **Backend Authentication** - Flask API with token-based authentication and password change support
+- ✅ **Home Page** - Welcome header with user's first name, calendar with day view, and pet list
 - ✅ **Calendar Widget** - Interactive calendar with navigation between months
-- ✅ **Pet Management** - Add, edit, delete pets with full details
-- ✅ **Pet Details** - Store name, type (dog/cat/other), breed, age, sex, weight, medicine, notes
-- ✅ **Pet List Display** - Shows all pets with quick information preview
-- ✅ **Details & Edit Button** - View complete pet information and modify details in modal
+- ✅ **Today's Medication Schedule** - Day view showing all scheduled doses:
+  - Color-coded status (given, missed, upcoming)
+  - Automatically calculated based on reminder intervals
+  - Real-time updates when doses are logged
+- ✅ **Medication Reminders** - Browser notification system:
+  - Requests permission on first visit
+  - Sends notifications at scheduled dose times
+  - Notifications include pet name and medication info
+  - Checks every minute for due reminders
+- ✅ **Pet Management (Backend)** - Add, edit, delete pets via Flask API with full details
+- ✅ **Pet Details** - Store name, species, breed, age, weight, sex, medicine, notes, and photo in PostgreSQL database
+- ✅ **Pet Photo Upload** - Upload and display pet photos with:
+  - Image upload in Add/Edit pet forms with preview
+  - Circular thumbnail in pet list on home page
+  - Large photo display in pet details modal
+  - Photo displayed on pet dashboard
+  - Base64 encoding for database storage (max 2MB)
+- ✅ **Pet List Display** - Fetches all pets from backend API per authenticated user
 - ✅ **Pet-Specific Dashboard** - Each pet has a unique dashboard with:
-  - Pet Information card (type, breed, age, sex, weight)
-  - Medication card with reminder interval settings (1-24 hours)
+  - Pet Information card (type, breed, age)
+  - **Medication Management** - Backend-driven medication tracking with create/read/delete
+  - Medication Reminders with custom intervals (1-24 hours) stored locally
   - Dose Logging card to track medication doses with timestamps
   - Recent dose logs display (last 5 entries)
 - ✅ **Dashboard Button** - Quick access to individual pet dashboards from pet list
-- ✅ **Medication Reminders** - Set custom reminder intervals (hours) per medication
-- ✅ **Dose Logging System** - Log medication doses with timestamps and descriptions
-- ✅ **Persistent Storage** - All data saved to LocalStorage per user
+- ✅ **Backend Medication API** - Full CRUD operations for pet medications:
+  - Create medications with name, dosage, frequency
+  - Fetch medications per pet from database
+  - Delete medications with authorization checks
+  - Track medication start/end times
+- ✅ **Persistent Storage** - User and pet data in PostgreSQL; local reminder settings in localStorage
 - ✅ **Responsive Design** - Mobile-friendly UI with modern styling
 - ✅ **Custom Branding & Theming** - Unified PawPal color palette throughout
 - ✅ **Background Image Support** - Customizable background images
 - ✅ **Navigation Bar** - Header with Home, Dashboard, and Logout buttons
-- ✅ **User Logout** - Secure logout that clears session and redirects to login
+- ✅ **User Logout** - Secure logout that clears JWT token and redirects to login
+- ✅ **API Error Handling** - Comprehensive error responses with proper HTTP status codes
+- ✅ **Authorization** - User-specific data access control; pets and medications isolated per user
 
 > *Stretch Goals (Future):*
 - Family Sharing: Multi-user access to pet information
@@ -113,9 +170,12 @@ The project aims to:
 5. Click "Dashboard" on any pet to view detailed information and track doses
 
 ### Data Storage
-- All user and pet data is stored in the browser's LocalStorage
-- Data persists across browser sessions
-- To clear data, open browser DevTools → Application → LocalStorage and delete the app's entries
+- **User and pet data**: Stored in PostgreSQL database (backend mode)
+- **Authentication tokens**: JWT tokens with 7-day expiry stored in browser
+- **Reminder settings**: Stored in browser's LocalStorage per user
+- **Dose logs**: Stored in browser's LocalStorage per user
+- To clear data in frontend-only mode, open browser DevTools → Application → LocalStorage and delete the app's entries
+- To clear backend data, database must be reset (contact database administrator)
 
 ---
 
@@ -139,18 +199,43 @@ The project aims to:
 ### Pet Dashboard (`dashboard.html`)
 - Unique dashboard for each selected pet
 - Shows pet icon and name in header
+- **Pet photo** displayed prominently (or species emoji if no photo)
 - Three information cards:
-  1. **Pet Information** - Type, breed, age, sex, weight
+  1. **Pet Information** - Type, breed, age, sex, weight with photo
   2. **Medication** - Medication details with reminder interval settings
   3. **Dose Logging** - Log doses and view recent entries with timestamps
 - Back to Home button
 
 ---
 
-## 🧩 Planned Features / Future Work
+## 🔄 Recent Updates (Backend Integration)
+
+### Dashboard (`dashboard.js`)
+- **Backend API Integration**: Now fetches pet data from Flask API instead of LocalStorage
+- **Medication Backend CRUD**: 
+  - Medications are stored in PostgreSQL database
+  - Frontend forms to add/delete medications via backend endpoints
+  - Real-time medication list updates from API
+- **JWT Authentication**: Uses Bearer token for API requests
+- **Hybrid Storage**: 
+  - Pet and medication data persists in database
+  - Reminder intervals and dose logs still use LocalStorage
+- **Enhanced Error Handling**: Better error messages when API calls fail
+
+### Flask Backend API (`flask_auth_api.py`)
+- **Database Models**: User, Pet, and Medication models with relationships
+- **PostgreSQL Support**: Flexible database configuration via environment variables
+- **JWT Token System**: 7-day expiring tokens for secure API access
+- **Pet Management Endpoints**: Full CRUD operations for pets per authenticated user
+- **Medication Endpoints**: Complete medication tracking (create, read, delete)
+- **Authorization Checks**: All endpoints verify user ownership of resources
+- **CORS Support**: Enabled for development and production use
+- **Error Handlers**: Comprehensive HTTP error responses
+- **Database Initialization**: Automatic table creation on app startup
+
+---
  
 > **Phase 2 (Next Sprint):**
-- Backend API integration for data persistence
 - Email notification system for medication reminders
 - Vet appointment scheduling and tracking
 - Medical history and vaccination records
@@ -159,7 +244,6 @@ The project aims to:
 - Calendar view synchronized with medication schedules
 - PDF report generation for vet visits
 - Multi-pet household dashboard view
-- Photo storage for pet identification
 - Family/caregiver sharing features
 - Admin dashboard
 
@@ -213,11 +297,34 @@ python -m http.server 8000
 pip install -r requirements.txt
 
 # Start Flask API
-python flask-auth-api.py
-# Server runs on http://localhost:5000
+python flask_auth_api.py
+# Server runs on http://localhost:5001
 ```
 
-### 4. Switch Authentication Mode
+### 4. Available API Endpoints
+
+**Authentication Routes:**
+- `POST /auth/signup` — Create new user account
+- `POST /auth/login` — Login and receive JWT token
+- `POST /auth/logout` — Logout (requires token)
+- `GET /auth/me` — Get current user info (requires token)
+- `POST /auth/change-password` — Change user password (requires token)
+
+**Pet Routes:**
+- `POST /pets/create` — Create a new pet (requires token)
+- `GET /pets` — Fetch all pets for current user (requires token)
+- `PUT /pets/<pet_id>` — Update pet information (requires token)
+- `DELETE /pets/<pet_id>` — Delete a pet (requires token)
+
+**Medication Routes:**
+- `GET /pets/<pet_id>/medications` — Fetch medications for a pet (requires token)
+- `POST /pets/<pet_id>/medications` — Create medication for pet (requires token)
+- `DELETE /medications/<medication_id>` — Delete medication (requires token)
+
+**Health Check:**
+- `GET /health` — Health check endpoint (no auth required)
+
+### 5. Switch Authentication Mode
 **Frontend-only (LocalStorage):**
 ```javascript
 const auth = new PawPalAuth({
@@ -225,9 +332,9 @@ const auth = new PawPalAuth({
 });
 ```
 
-**Full-stack (Flask API):**
+**Full-stack (Flask API with JWT):**
 ```javascript
 const auth = new PawPalAuth({
-    apiEndpoint: 'http://localhost:5000'
+    apiEndpoint: 'http://localhost:5001'
 });
 ```

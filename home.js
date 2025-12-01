@@ -3,10 +3,11 @@
  * Handles user authentication, pets management, and calendar functionality
  */
 
-// Initialize auth
+// Initialize auth with API mode to connect to Flask backend
 let auth = new PawPalAuth({
   storageKey: 'example_app_user',
-  usersKey: 'example_app_users'
+  usersKey: 'example_app_users',
+  apiEndpoint: 'http://localhost:5001'
 });
 
 // Calendar state
@@ -27,6 +28,18 @@ if (!currentUser) {
   
   // Initialize calendar
   initCalendar();
+  
+  // Initialize medication reminders
+  initMedicationReminders();
+  
+  // Load user's pets (async)
+  loadUserPets().catch(err => {
+    console.error('Failed to load pets:', err);
+    const petsContainer = document.getElementById('petsContainer');
+    if (petsContainer) {
+      petsContainer.innerHTML = '<p style="color: red;">Failed to load pets. Make sure Flask is running.</p>';
+    }
+  });
 }
 
 // Logout function
@@ -39,9 +52,9 @@ async function handleLogout() {
 
 // ==================== PETS MANAGEMENT ====================
 
-function loadUserPets() {
+async function loadUserPets() {
   const petsContainer = document.getElementById('petsContainer');
-  const pets = getUserPets();
+  const pets = await getUserPets();
 
   if (pets.length === 0) {
     petsContainer.innerHTML = `
@@ -58,24 +71,26 @@ function loadUserPets() {
   pets.forEach(pet => {
     const petItem = document.createElement('li');
     petItem.className = 'pet-item';
-    petItem.dataset.petId = pet.id;
-    const icon = pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾';
+    petItem.dataset.petId = pet.pet_id || pet.id;
+    const icon = pet.species === 'dog' ? '🐕' : pet.species === 'cat' ? '🐈' : '🐾';
+    
+    // Pet thumbnail - use image if available, otherwise show icon
+    const petThumbnail = pet.image 
+      ? `<img src="${pet.image}" alt="${pet.name}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">`
+      : icon;
 
     petItem.innerHTML = `
-      <div class="pet-icon">${icon}</div>
+      <div class="pet-icon">${petThumbnail}</div>
       <div class="pet-info">
         <p class="pet-name">${pet.name}</p>
         <p class="pet-details">
-          ${pet.breed ? pet.breed + ' • ' : ''}${pet.type}${pet.age ? ' • ' + pet.age + ' ' + (pet.age === 1 ? 'year' : 'years') : ''}
-          ${pet.sex ? ' • ' + pet.sex : ''}
+          ${pet.breed ? pet.breed + ' • ' : ''}${pet.species}${pet.age ? ' • ' + pet.age + ' ' + (pet.age === 1 ? 'year' : 'years') : ''}
         </p>
-        ${pet.medicine ? '<p class="pet-medicine">💊 Medicine: ' + pet.medicine + '</p>' : ''}
-        ${pet.notes ? '<p class="pet-notes">📝 ' + pet.notes + '</p>' : ''}
       </div>
       <div class="pet-actions">
-        <button class="pet-btn details" data-action="details" data-id="${pet.id}">Details & Edit</button>
-        <button class="pet-btn dashboard" data-action="dashboard" data-id="${pet.id}">Dashboard</button>
-        <button class="pet-btn delete" data-action="delete" data-id="${pet.id}">Delete</button>
+        <button class="pet-btn details" data-action="details" data-id="${pet.pet_id || pet.id}">Details & Edit</button>
+        <button class="pet-btn dashboard" data-action="dashboard" data-id="${pet.pet_id || pet.id}">Dashboard</button>
+        <button class="pet-btn delete" data-action="delete" data-id="${pet.pet_id || pet.id}">Delete</button>
       </div>
     `;
 
@@ -96,37 +111,107 @@ async function addNewPet() {
   const pet = await promptPetDetails();
   if (!pet) return;
 
-  const pets = getUserPets();
-  pets.push(pet);
-  saveUserPets(pets);
+  try {
+    // POST to Flask API
+    const response = await fetch('http://localhost:5001/pets/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentUser.token}`
+      },
+      body: JSON.stringify({
+        name: pet.name,
+        species: pet.type || pet.species,
+        breed: pet.breed,
+        age: pet.age,
+        weight: pet.weight,
+        sex: pet.sex,
+        medicine: pet.medicine,
+        notes: pet.notes,
+        image: pet.image
+      })
+    });
 
-  loadUserPets();
-  auth.showMessage(`${pet.name} has been added!`, 'success');
+    if (response.ok) {
+      const result = await response.json();
+      auth.showMessage(`${pet.name} has been added!`, 'success');
+      loadUserPets();
+    } else {
+      const error = await response.json();
+      auth.showMessage(error.error || 'Failed to create pet', 'error');
+    }
+  } catch (err) {
+    auth.showMessage('Error: ' + err.message, 'error');
+  }
 }
 
-function handlePetAction(petId, action) {
+async function handlePetAction(petId, action) {
   if (action === 'details') {
-    showPetDetailAndEdit(petId);
+    await showPetDetailAndEdit(petId);
   } else if (action === 'dashboard') {
     goToPetDashboard(petId);
   } else if (action === 'delete') {
-    deletePet(petId);
+    await deletePet(petId);
   }
 }
 
 async function editPet(petId) {
-  const pets = getUserPets();
-  const petIndex = pets.findIndex(p => p.id === petId);
-  if (petIndex === -1) return;
+  const pets = await getUserPets();
+  const pet = pets.find(p => (p.id || p.pet_id) === petId);
+  if (!pet) {
+    console.error('Pet not found for editing:', petId);
+    return;
+  }
 
-  const updated = await promptPetDetails(pets[petIndex]);
+  // Map API fields to form fields
+  const existingData = {
+    id: pet.id || pet.pet_id,
+    name: pet.name,
+    type: pet.species || pet.type,  // API uses 'species'
+    breed: pet.breed,
+    age: pet.age,
+    sex: pet.sex,
+    weight: pet.weight,
+    medicine: pet.medicine,
+    notes: pet.notes,
+    image: pet.image
+  };
+
+  const updated = await promptPetDetails(existingData);
   if (!updated) return;
 
-  pets[petIndex] = { ...pets[petIndex], ...updated, updatedAt: new Date().toISOString() };
-  saveUserPets(pets);
+  try {
+    // Call API to update pet
+    const response = await fetch(`http://localhost:5001/pets/${petId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${currentUser.token}`
+      },
+      body: JSON.stringify({
+        name: updated.name,
+        species: updated.type,  // API uses 'species'
+        breed: updated.breed,
+        age: updated.age,
+        weight: updated.weight,
+        sex: updated.sex,
+        medicine: updated.medicine,
+        notes: updated.notes,
+        image: updated.image
+      })
+    });
 
-  loadUserPets();
-  auth.showMessage(`${updated.name} has been updated.`, 'success');
+    if (response.ok) {
+      await loadUserPets();
+      auth.showMessage(`${updated.name} has been updated.`, 'success');
+    } else {
+      const error = await response.json();
+      auth.showMessage(error.error || 'Failed to update pet', 'error');
+    }
+  } catch (err) {
+    console.error('Error updating pet:', err);
+    auth.showMessage('Error updating pet: ' + err.message, 'error');
+  }
 }
 
 function goToPetDashboard(petId) {
@@ -136,28 +221,53 @@ function goToPetDashboard(petId) {
   window.location.href = 'dashboard.html';
 }
 
-function deletePet(petId) {
-  const pets = getUserPets();
-  const pet = pets.find(p => p.id === petId);
+async function deletePet(petId) {
+  const pets = await getUserPets();
+  const pet = pets.find(p => (p.pet_id || p.id) === petId);
   if (!pet) return;
 
   const confirmed = confirm(`Are you sure you want to remove ${pet.name}?`);
   if (!confirmed) return;
 
-  const filtered = pets.filter(p => p.id !== petId);
-  saveUserPets(filtered);
+  try {
+    const response = await fetch(`http://localhost:5001/pets/${petId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${currentUser.token}`
+      }
+    });
 
-  loadUserPets();
-  auth.showMessage(`${pet.name} has been removed.`, 'info');
+    if (response.ok) {
+      auth.showMessage(`${pet.name} has been removed.`, 'info');
+      loadUserPets();
+    } else {
+      const error = await response.json();
+      auth.showMessage(error.error || 'Failed to delete pet', 'error');
+    }
+  } catch (err) {
+    auth.showMessage('Error: ' + err.message, 'error');
+  }
 }
 
-function showPetDetailAndEdit(petId) {
-  const pets = getUserPets();
-  const pet = pets.find(p => p.id === petId);
-  if (!pet) return;
+async function showPetDetailAndEdit(petId) {
+  const pets = await getUserPets();
+  const pet = pets.find(p => (p.id || p.pet_id) === petId);
+  if (!pet) {
+    console.error('Pet not found:', petId);
+    return;
+  }
 
-  const icon = pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾';
+  // Use 'species' from API, fallback to 'type' for compatibility
+  const petType = pet.species || pet.type || 'other';
+  const icon = petType === 'dog' ? '🐕' : petType === 'cat' ? '🐈' : '🐾';
   const modalId = 'pet-detail-modal-' + Date.now();
+  const petIdForEdit = pet.id || pet.pet_id;
+  
+  // Pet image display
+  const petImageHtml = pet.image 
+    ? `<div class="pet-image-display"><img src="${pet.image}" alt="${pet.name}" style="max-width: 200px; max-height: 200px; border-radius: 10px; object-fit: cover;"></div>`
+    : `<div class="pet-image-placeholder" style="width: 200px; height: 200px; background: #f0f0f0; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 64px;">${icon}</div>`;
+  
   const modal = document.createElement('div');
   modal.className = 'modal-overlay show';
   modal.id = modalId;
@@ -168,12 +278,15 @@ function showPetDetailAndEdit(petId) {
         <button class="modal-close" onclick="document.getElementById('${modalId}').remove()">✕</button>
       </div>
       <div class="pet-detail-content">
+        <div class="detail-section" style="text-align: center; margin-bottom: 20px;">
+          ${petImageHtml}
+        </div>
         <div class="detail-section">
           <h4>Basic Information</h4>
           <div class="detail-grid">
             <div class="detail-item">
               <span class="detail-label">Type:</span>
-              <span class="detail-value">${pet.type.charAt(0).toUpperCase() + pet.type.slice(1)}</span>
+              <span class="detail-value">${petType.charAt(0).toUpperCase() + petType.slice(1)}</span>
             </div>
             ${pet.breed ? `
             <div class="detail-item">
@@ -223,12 +336,18 @@ function showPetDetailAndEdit(petId) {
         ` : ''}
       </div>
       <div class="modal-footer">
-        <button class="modal-btn primary" onclick="editPet(${pet.id}); document.getElementById('${modalId}').remove();">Edit</button>
+        <button class="modal-btn primary" id="editPetBtn-${modalId}">Edit</button>
         <button class="modal-btn" onclick="document.getElementById('${modalId}').remove()">Close</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+  
+  // Add event listener for edit button
+  document.getElementById('editPetBtn-' + modalId).addEventListener('click', () => {
+    document.getElementById(modalId).remove();
+    editPet(petIdForEdit);
+  });
 }
 
 function promptPetDetails(existing = {}) {
@@ -237,6 +356,10 @@ function promptPetDetails(existing = {}) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay show';
     modal.id = modalId;
+    
+    // Store the current image
+    let currentImage = existing.image || null;
+    
     modal.innerHTML = `
       <div class="modal-content pet-form-modal">
         <div class="modal-header">
@@ -244,6 +367,19 @@ function promptPetDetails(existing = {}) {
           <button class="modal-close" onclick="document.getElementById('${modalId}').remove()">✕</button>
         </div>
         <form class="pet-form" onsubmit="event.preventDefault()">
+          <div class="form-group" style="text-align: center;">
+            <label>Pet Photo</label>
+            <div class="pet-image-upload" style="margin: 10px 0;">
+              <div id="imagePreview-${modalId}" style="width: 120px; height: 120px; border-radius: 50%; margin: 0 auto 10px; overflow: hidden; border: 3px dashed #ccc; display: flex; align-items: center; justify-content: center; background: #f5f5f5; cursor: pointer;" onclick="document.getElementById('imageInput-${modalId}').click()">
+                ${existing.image 
+                  ? `<img src="${existing.image}" style="width: 100%; height: 100%; object-fit: cover;">`
+                  : `<span style="color: #999; font-size: 14px; text-align: center;">Click to<br>add photo</span>`
+                }
+              </div>
+              <input type="file" id="imageInput-${modalId}" accept="image/*" style="display: none;">
+              ${existing.image ? `<button type="button" id="removeImage-${modalId}" class="btn btn-outline" style="font-size: 12px; padding: 4px 8px;">Remove Photo</button>` : ''}
+            </div>
+          </div>
           <div class="form-group">
             <label>Pet Name *</label>
             <input type="text" name="name" value="${existing.name || ''}" required>
@@ -299,6 +435,57 @@ function promptPetDetails(existing = {}) {
     document.body.appendChild(modal);
     modal.classList.add('show');
     
+    // Handle image upload
+    const imageInput = document.getElementById('imageInput-' + modalId);
+    const imagePreview = document.getElementById('imagePreview-' + modalId);
+    
+    imageInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+          alert('Image size must be less than 2MB');
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          currentImage = event.target.result;
+          imagePreview.innerHTML = `<img src="${currentImage}" style="width: 100%; height: 100%; object-fit: cover;">`;
+          imagePreview.style.border = '3px solid #3b5998';
+          
+          // Add remove button if not exists
+          if (!document.getElementById('removeImage-' + modalId)) {
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.id = 'removeImage-' + modalId;
+            removeBtn.className = 'btn btn-outline';
+            removeBtn.style.cssText = 'font-size: 12px; padding: 4px 8px; margin-top: 5px;';
+            removeBtn.textContent = 'Remove Photo';
+            removeBtn.onclick = () => {
+              currentImage = null;
+              imagePreview.innerHTML = `<span style="color: #999; font-size: 14px; text-align: center;">Click to<br>add photo</span>`;
+              imagePreview.style.border = '3px dashed #ccc';
+              removeBtn.remove();
+            };
+            imagePreview.parentNode.appendChild(removeBtn);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // Handle remove image button if exists
+    const removeBtn = document.getElementById('removeImage-' + modalId);
+    if (removeBtn) {
+      removeBtn.onclick = () => {
+        currentImage = null;
+        imagePreview.innerHTML = `<span style="color: #999; font-size: 14px; text-align: center;">Click to<br>add photo</span>`;
+        imagePreview.style.border = '3px dashed #ccc';
+        removeBtn.remove();
+      };
+    }
+    
     const form = modal.querySelector('.pet-form');
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -313,6 +500,7 @@ function promptPetDetails(existing = {}) {
         weight: formData.get('weight') ? parseFloat(formData.get('weight')) : null,
         medicine: formData.get('medicine'),
         notes: formData.get('notes'),
+        image: currentImage,
         createdAt: existing.createdAt || new Date().toISOString()
       };
       modal.remove();
@@ -325,15 +513,26 @@ function promptPetDetails(existing = {}) {
   });
 }
 
-function getUserPets() {
-  const userPetsKey = `pawpal_pets_${currentUser.email}`;
-  const petsData = localStorage.getItem(userPetsKey);
-  return petsData ? JSON.parse(petsData) : [];
-}
+async function getUserPets() {
+  try {
+    const response = await fetch('http://localhost:5001/pets', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${currentUser.token}`
+      }
+    });
 
-function saveUserPets(pets) {
-  const userPetsKey = `pawpal_pets_${currentUser.email}`;
-  localStorage.setItem(userPetsKey, JSON.stringify(pets));
+    if (response.ok) {
+      const pets = await response.json();
+      return pets;
+    } else {
+      console.error('Failed to fetch pets');
+      return [];
+    }
+  } catch (err) {
+    console.error('Error fetching pets:', err);
+    return [];
+  }
 }
 
 // ==================== CALENDAR ====================
@@ -411,3 +610,207 @@ function nextMonth() {
   currentDate.setMonth(currentDate.getMonth() + 1);
   renderCalendar();
 }
+
+// ==================== MEDICATION REMINDERS ====================
+
+let reminderInterval = null;
+
+async function initMedicationReminders() {
+  // Request notification permission
+  if ('Notification' in window) {
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      console.log('Notification permission:', permission);
+    }
+  }
+  
+  // Load today's schedule
+  await loadTodaySchedule();
+  
+  // Start checking for reminders every minute
+  checkMedicationReminders();
+  reminderInterval = setInterval(checkMedicationReminders, 60000); // Check every minute
+}
+
+async function loadTodaySchedule() {
+  const container = document.getElementById('todaySchedule');
+  if (!container) return;
+  
+  const pets = await getUserPets();
+  const now = new Date();
+  const scheduleItems = [];
+  
+  for (const pet of pets) {
+    if (!pet.medicine) continue;
+    
+    const petId = pet.pet_id || pet.id;
+    const reminderKey = `pawpal_med_reminder_${currentUser.email}_${petId}`;
+    const reminder = JSON.parse(localStorage.getItem(reminderKey) || '{}');
+    
+    if (!reminder.interval) continue;
+    
+    // Calculate dose times for today based on interval
+    const interval = reminder.interval;
+    const startHour = 8; // Start doses at 8 AM
+    const doseTimes = [];
+    
+    for (let hour = startHour; hour < 24; hour += interval) {
+      const doseTime = new Date(now);
+      doseTime.setHours(Math.floor(hour), (hour % 1) * 60, 0, 0);
+      doseTimes.push(doseTime);
+    }
+    
+    // Get dose logs for today
+    const doseLogKey = `pawpal_dose_log_${currentUser.email}_${petId}`;
+    const doseLogs = JSON.parse(localStorage.getItem(doseLogKey) || '[]');
+    const todayLogs = doseLogs.filter(log => {
+      const logDate = new Date(log.timestamp);
+      return logDate.toDateString() === now.toDateString();
+    });
+    
+    doseTimes.forEach(doseTime => {
+      const timeStr = doseTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const isPast = doseTime < now;
+      
+      // Check if dose was logged around this time (within 1 hour window)
+      const wasLogged = todayLogs.some(log => {
+        const logTime = new Date(log.timestamp);
+        return Math.abs(logTime - doseTime) < 60 * 60 * 1000; // Within 1 hour
+      });
+      
+      scheduleItems.push({
+        pet: pet,
+        time: doseTime,
+        timeStr: timeStr,
+        isPast: isPast,
+        wasLogged: wasLogged,
+        medicine: pet.medicine
+      });
+    });
+  }
+  
+  // Sort by time
+  scheduleItems.sort((a, b) => a.time - b.time);
+  
+  if (scheduleItems.length === 0) {
+    container.innerHTML = `
+      <p style="color: #666; font-size: 14px;">No medication reminders scheduled for today.</p>
+      <p style="color: #888; font-size: 12px; margin-top: 8px;">Set up reminders in each pet's dashboard.</p>
+    `;
+    return;
+  }
+  
+  let html = '<div class="schedule-list" style="max-height: 300px; overflow-y: auto;">';
+  
+  scheduleItems.forEach(item => {
+    const icon = item.pet.species === 'dog' ? '🐕' : item.pet.species === 'cat' ? '🐈' : '🐾';
+    let statusClass = '';
+    let statusIcon = '';
+    
+    if (item.wasLogged) {
+      statusClass = 'background: #d4edda; border-left: 3px solid #28a745;';
+      statusIcon = '✅';
+    } else if (item.isPast) {
+      statusClass = 'background: #f8d7da; border-left: 3px solid #dc3545;';
+      statusIcon = '⚠️';
+    } else {
+      statusClass = 'background: #fff3cd; border-left: 3px solid #ffc107;';
+      statusIcon = '⏰';
+    }
+    
+    html += `
+      <div class="schedule-item" style="display: flex; align-items: center; gap: 12px; padding: 10px; margin-bottom: 8px; border-radius: 6px; ${statusClass}">
+        <span style="font-size: 20px;">${icon}</span>
+        <div style="flex: 1;">
+          <div style="font-weight: 600; color: #333;">${item.pet.name}</div>
+          <div style="font-size: 12px; color: #666;">${item.medicine}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-weight: 600; color: #3b5998;">${item.timeStr}</div>
+          <div style="font-size: 16px;">${statusIcon}</div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  
+  // Add legend
+  html += `
+    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee; font-size: 11px; color: #888;">
+      <span style="margin-right: 12px;">✅ Given</span>
+      <span style="margin-right: 12px;">⚠️ Missed</span>
+      <span>⏰ Upcoming</span>
+    </div>
+  `;
+  
+  container.innerHTML = html;
+}
+
+async function checkMedicationReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+  
+  const pets = await getUserPets();
+  const now = new Date();
+  
+  for (const pet of pets) {
+    if (!pet.medicine) continue;
+    
+    const petId = pet.pet_id || pet.id;
+    const reminderKey = `pawpal_med_reminder_${currentUser.email}_${petId}`;
+    const reminder = JSON.parse(localStorage.getItem(reminderKey) || '{}');
+    
+    if (!reminder.interval) continue;
+    
+    // Check if it's time for a reminder
+    const lastNotifiedKey = `pawpal_last_notified_${currentUser.email}_${petId}`;
+    const lastNotified = localStorage.getItem(lastNotifiedKey);
+    const lastNotifiedTime = lastNotified ? new Date(lastNotified) : null;
+    
+    // Calculate if we should notify now
+    const intervalMs = reminder.interval * 60 * 60 * 1000; // Convert hours to ms
+    const shouldNotify = !lastNotifiedTime || (now - lastNotifiedTime) >= intervalMs;
+    
+    // Also check if current time is close to a scheduled dose time
+    const startHour = 8;
+    const interval = reminder.interval;
+    let isNearDoseTime = false;
+    
+    for (let hour = startHour; hour < 24; hour += interval) {
+      const doseHour = Math.floor(hour);
+      const doseMinute = Math.round((hour % 1) * 60);
+      
+      if (now.getHours() === doseHour && Math.abs(now.getMinutes() - doseMinute) <= 5) {
+        isNearDoseTime = true;
+        break;
+      }
+    }
+    
+    if (shouldNotify && isNearDoseTime) {
+      // Send notification
+      const icon = pet.species === 'dog' ? '🐕' : pet.species === 'cat' ? '🐈' : '🐾';
+      
+      new Notification(`${icon} PawPal Medication Reminder`, {
+        body: `Time to give ${pet.name} their medication: ${pet.medicine}`,
+        icon: '/favicon.ico',
+        tag: `pawpal-med-${petId}`,
+        requireInteraction: true
+      });
+      
+      // Update last notified time
+      localStorage.setItem(lastNotifiedKey, now.toISOString());
+      
+      // Refresh the schedule display
+      loadTodaySchedule();
+    }
+  }
+}
+
+// Refresh schedule when a dose is logged (called from dashboard)
+window.addEventListener('storage', (e) => {
+  if (e.key && e.key.includes('pawpal_dose_log_')) {
+    loadTodaySchedule();
+  }
+});
