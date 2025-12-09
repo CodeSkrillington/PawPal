@@ -66,6 +66,186 @@ The project aims to:
 
 ---
 
+## 💻 System Requirements
+
+### Operating System
+- **Windows** 10/11
+- **macOS** 10.14+
+- **Linux** (Ubuntu 20.04+, or equivalent)
+
+### Software Prerequisites
+- **Python**: 3.7 or higher
+- **PostgreSQL**: 13.0 or higher (optional - SQLite fallback available)
+- **Modern Web Browser**: Chrome 90+, Firefox 88+, Safari 14+, or Edge 90+
+- **Git**: For cloning the repository
+
+### Python Dependencies
+All dependencies are listed in `requirements.txt`:
+- Flask 2.3.0+
+- Flask-SQLAlchemy 3.0.0+
+- Flask-CORS 4.0.0+
+- PyJWT 2.8.0+
+- psycopg2-binary 2.9.0+ (for PostgreSQL)
+- python-dotenv 1.0.0+
+- Werkzeug 2.3.0+
+
+---
+
+## 🚀 Complete Setup Instructions (For Instructor)
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/don-strong/PawPal.git
+cd PawPal
+```
+
+### Step 2: Install Python Dependencies
+```bash
+# Ensure Python 3.7+ is installed
+python --version
+
+# Install required packages
+pip install -r requirements.txt
+```
+
+### Step 3: Configure Environment Variables (Optional - for PostgreSQL)
+**The application will work without this step using SQLite fallback.**
+
+If you want to use PostgreSQL instead:
+```bash
+# Create a .env file in the project root
+touch .env
+
+# Add the following content (replace with your PostgreSQL credentials):
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=pawpal
+DB_USER=postgres
+DB_PASSWORD=yourpassword
+SECRET_KEY=your-secret-key-change-in-production
+```
+
+**Note:** If `.env` is not configured, the app automatically uses SQLite at a temporary location.
+
+### Step 4: Start the Flask Backend
+```bash
+python flask_auth_api.py
+```
+
+**Expected Output:**
+```
+Database tables created successfully!
+ * Serving Flask app 'flask_auth_api'
+ * Debug mode: on
+WARNING: This is a development server.
+ * Running on http://0.0.0.0:5001
+```
+
+**Keep this terminal window open.** The backend is now running on `http://localhost:5001`
+
+### Step 5: Start the Frontend
+Open a **new terminal window** in the same directory:
+
+```bash
+# Option A: Python HTTP Server (recommended)
+python -m http.server 8000
+
+# Option B: Just open the HTML file directly in your browser
+# (Some features like CORS may not work properly)
+```
+
+**Expected Output:**
+```
+Serving HTTP on 0.0.0.0 port 8000 (http://0.0.0.0:8000/) ...
+```
+
+### Step 6: Access the Application
+1. Open your web browser
+2. Navigate to: **http://localhost:8000/modular-login.html**
+3. You should see the PawPal login page
+
+### Step 7: Create an Account and Test
+1. Click **"Sign Up"** on the login page
+2. Enter:
+   - Name: `Test User`
+   - Email: `test@example.com`
+   - Password: `password123`
+   - Confirm Password: `password123`
+3. Click **"Sign Up"**
+4. You'll be redirected to the home page showing:
+   - Welcome message with your name
+   - Empty pet list with "No pets added yet"
+   - Calendar on the left
+   - "Add New Pet" button
+
+### Step 8: Add a Pet to Verify Full Functionality
+1. Click **"+ Add New Pet"**
+2. Fill in pet details (name, species, breed, age)
+3. Click **"Save Pet"**
+4. Pet should appear in the list
+5. Click **"Dashboard"** button to view pet's dashboard
+
+---
+
+## 🔧 Troubleshooting
+
+### Port Already in Use
+If port 5001 or 8000 is already in use:
+```bash
+# Change Flask port (edit flask_auth_api.py, line 536):
+app.run(debug=True, host='0.0.0.0', port=5002)  # Change 5001 to 5002
+
+# Change frontend port:
+python -m http.server 8001  # Use 8001 instead of 8000
+```
+
+### "Module not found" Error
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### Database Connection Error
+The app will automatically fall back to SQLite if PostgreSQL is not configured. Check console output for:
+```
+Using SQLite database at: C:\Users\...\pawpal.db
+```
+
+### CORS Errors in Browser Console
+Make sure:
+1. Flask backend is running on port 5001
+2. You're accessing the frontend via `http://localhost:8000` (not file://)
+3. Check `home.js` and `dashboard.js` have `apiEndpoint: 'http://localhost:5001'`
+
+---
+
+## 📁 Repository Structure
+
+```
+PawPal/
+├── flask_auth_api.py          # Flask backend API (port 5001)
+├── requirements.txt           # Python dependencies
+├── modular-login.html         # Login/signup page (entry point)
+├── home.html                  # Main dashboard after login
+├── dashboard.html             # Individual pet dashboard
+├── home.js                    # Home page logic (~980 lines)
+├── dashboard.js               # Dashboard logic with API integration
+├── login.js                   # Login page authentication
+├── auth-module.js             # Reusable auth library (~380 lines)
+├── styles.css                 # Main application styles
+├── pet-styles.css             # Pet-specific styles
+├── template.css               # Template page styles
+├── instance/
+│   └── pawpal.db             # SQLite database (auto-created)
+├── img/                       # Images and assets
+├── instructions/              # Setup documentation
+│   ├── DATABASE_SETUP.md
+│   └── PROFESSOR_DEMO.md
+└── README.md                  # This file
+```
+
+---
+
 ## 🚀 Quick Start for Developers
 
 **See [`RUNNING.md`](./RUNNING.md) for complete setup instructions (macOS/Linux/Windows).**
@@ -155,27 +335,26 @@ python -m http.server 8000
 
 ---
 
-## 🚀 Getting Started
+## 🎯 Getting Started (Quick Overview)
 
-### Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- No installation required for frontend
-- Python 3.7+ (optional, for backend API)
+### For End Users (Testing the App)
+1. Ensure Python 3.7+ is installed
+2. Clone the repository
+3. Install dependencies: `pip install -r requirements.txt`
+4. Start backend: `python flask_auth_api.py`
+5. Start frontend: `python -m http.server 8000`
+6. Visit: `http://localhost:8000/modular-login.html`
+7. Sign up with any email/password
 
-### Running the Application
-1. Clone or download the repository
-2. Open `modular-login.html` in your web browser
-3. Create a new account or login with existing credentials
-4. Navigate to Home to manage your pets
-5. Click "Dashboard" on any pet to view detailed information and track doses
+### For Developers
+- See **"Complete Setup Instructions"** section above for detailed steps
+- See [`RUNNING.md`](./RUNNING.md) for platform-specific instructions
 
 ### Data Storage
-- **User and pet data**: Stored in PostgreSQL database (backend mode)
-- **Authentication tokens**: JWT tokens with 7-day expiry stored in browser
-- **Reminder settings**: Stored in browser's LocalStorage per user
-- **Dose logs**: Stored in browser's LocalStorage per user
-- To clear data in frontend-only mode, open browser DevTools → Application → LocalStorage and delete the app's entries
-- To clear backend data, database must be reset (contact database administrator)
+- **User and pet data**: PostgreSQL database (or SQLite fallback)
+- **Authentication tokens**: JWT tokens (7-day expiry) stored in browser
+- **Reminder settings**: Browser LocalStorage (per user)
+- **Dose logs**: Browser LocalStorage (per user)
 
 ---
 
