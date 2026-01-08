@@ -1,6 +1,4 @@
-# 🧭 CS 301 Group Project — README Template
 
----
 
 ## 📘 Project Name
 **PawPal**
